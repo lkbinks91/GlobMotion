@@ -1,26 +1,186 @@
 @import "tailwindcss";
 
+/* ── Base tokens ────────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --background: #0a0b0f;
+  --foreground: #e8eaf0;
+
+  /* Typography */
+  --font-editorial: var(--font-cormorant);   /* serif — city names, quotes */
+  --font-body:      var(--font-plus-jakarta); /* sans  — body copy          */
+  --font-display:   var(--font-syne);         /* display — labels, caps      */
+
+  /* Core palette (oklch for perceptual uniformity) */
+  --gem:     oklch(63% 0.14 163);   /* #1a9e6e approx — default accent */
+  --sand:    oklch(75% 0.12 72);    /* #e9a23b approx */
+  --ink:     oklch(9% 0.01 260);    /* #0f1117 */
+  --surface: oklch(14% 0.02 250);   /* #1c2230 */
+  --hi:      oklch(92% 0.01 250);   /* #e8eaf0 */
+  --mid:     oklch(55% 0.02 250);   /* #7a8499 */
+  --lo:      oklch(35% 0.02 250);   /* #4a5268 */
+
+  /* Dynamic accent — overridden per destination category */
+  --accent:         var(--gem);
+  --accent-dim:     oklch(63% 0.14 163 / 0.18);
+  --accent-border:  oklch(63% 0.14 163 / 0.35);
+
+  /* Spring physics reference values (used in framer-motion configs) */
+  --spring-stiff:  320;
+  --spring-damp:   28;
+
+  /* Noise overlay */
+  --noise-opacity: 0.022;
+}
+
+/* ── Category accent shifts ─────────────────────────────────────────────────── */
+/* Apply [data-category="beach"] on the card root */
+[data-category="beach"] {
+  --accent:        oklch(72% 0.14 52);    /* warm amber */
+  --accent-dim:    oklch(72% 0.14 52 / 0.18);
+  --accent-border: oklch(72% 0.14 52 / 0.35);
+}
+[data-category="city"] {
+  --accent:        oklch(63% 0.16 253);   /* cool blue */
+  --accent-dim:    oklch(63% 0.16 253 / 0.18);
+  --accent-border: oklch(63% 0.16 253 / 0.35);
+}
+[data-category="nature"] {
+  --accent:        oklch(65% 0.17 148);   /* forest green */
+  --accent-dim:    oklch(65% 0.17 148 / 0.18);
+  --accent-border: oklch(65% 0.17 148 / 0.35);
+}
+[data-category="culture"] {
+  --accent:        oklch(67% 0.16 300);   /* warm violet */
+  --accent-dim:    oklch(67% 0.16 300 / 0.18);
+  --accent-border: oklch(67% 0.16 300 / 0.35);
+}
+[data-category="party"] {
+  --accent:        oklch(70% 0.18 30);    /* coral-red */
+  --accent-dim:    oklch(70% 0.18 30 / 0.18);
+  --accent-border: oklch(70% 0.18 30 / 0.35);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans:  var(--font-geist-sans);
+  --font-mono:  var(--font-geist-mono);
+
+  --color-gem:     #1a9e6e;
+  --color-sand:    #e9a23b;
+  --color-ink:     #0f1117;
+  --color-surface: #1c2230;
+  --color-panel:    #1c2230;
+  --color-hi:      #e8eaf0;
+  --color-mid:     #7a8499;
+  --color-lo:      #4a5268;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ── Noise texture filter ───────────────────────────────────────────────────── */
+/* Applied via class="noise" — inline SVG filter, no external asset needed */
+.noise::after {
+  content:          "";
+  position:         absolute;
+  inset:            0;
+  border-radius:    inherit;
+  pointer-events:   none;
+  opacity:          var(--noise-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:  160px 160px;
+  mix-blend-mode:   overlay;
+}
+
+/* ── Utilities ──────────────────────────────────────────────────────────────── */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+@utility font-editorial {
+  font-family: var(--font-editorial), "Georgia", serif;
+}
+
+/* Theme-aware surface utilities */
+@utility bg-card {
+  background-color: var(--bg-card);
+}
+@utility bg-surface {
+  background-color: var(--bg-surface);
+}
+@utility border-subtle {
+  border: 0.5px solid var(--border-subtle);
+}
+@utility border-t-subtle {
+  border-top: 0.5px solid var(--border-subtle);
+}
+@utility border-r-subtle {
+  border-right: 0.5px solid var(--border-subtle);
+}
+@utility border-b-subtle {
+  border-bottom: 0.5px solid var(--border-subtle);
+}
+@utility border-l-subtle {
+  border-left: 0.5px solid var(--border-subtle);
+}
+
+/* Gradient border utility for vibe tags */
+@utility vibe-tag-border {
+  position:   relative;
+  z-index:    0;
+  &::before {
+    content:       "";
+    position:      absolute;
+    inset:         -1px;
+    border-radius: inherit;
+    padding:       1px;
+    background:    linear-gradient(135deg, var(--accent-border), transparent 60%);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Animations ─────────────────────────────────────────────────────────────── */
+@keyframes marker-pulse {
+  0%   { transform: scale(1);   opacity: 0.85; }
+  100% { transform: scale(2.6); opacity: 0; }
 }
+
+@keyframes tooltip-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+
+@keyframes radar-draw {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Theme tokens ───────────────────────────────────────────────────────────── */
+:root {
+  --bg-base:        oklch(9% 0.01 260);
+  --bg-surface:     oklch(12% 0.01 260);
+  --bg-card:        oklch(11% 0.015 260 / 0.96);
+  --border-subtle:  rgba(255,255,255,0.07);
+  --text-primary:   rgba(255,255,255,0.92);
+  --text-secondary: rgba(255,255,255,0.60);
+  --text-muted:     rgba(255,255,255,0.35);
+  --accent:         oklch(63% 0.14 163);
+}
+
+/* ── Theme transitions ──────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* ── Global base ────────────────────────────────────────────────────────────── */
+body {
+  background: var(--bg-base, var(--background));
+  color:      var(--text-primary, var(--foreground));
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
