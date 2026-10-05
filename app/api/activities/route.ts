@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { cachedJson } from "@/app/lib/serverCache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,6 +70,11 @@ Return ONLY valid JSON, no markdown, no text before or after:
   ]
 }`;
 
+  const key = `activities|${city}|${country}|${from}|${to}|${moods.join(",")}`.toLowerCase();
+  return cachedJson(key, 12 * 3600_000, () => generate(client, userPrompt));
+}
+
+async function generate(client: Anthropic, userPrompt: string): Promise<Response> {
   try {
     const message = await client.messages.create({
       model: "claude-haiku-4-5",

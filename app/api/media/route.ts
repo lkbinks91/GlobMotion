@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cachedJson } from "@/app/lib/serverCache";
 
 // ── Minimal API shape types (server-only) ────────────────────────────────────
 interface UnsplashPhoto {
@@ -30,6 +31,13 @@ interface PexelsVideo {
 
 // ── GET /api/media?city=Paris&country=France&count=7 ─────────────────────────
 export async function GET(req: NextRequest) {
+  const p = req.nextUrl.searchParams;
+  const key = `media|${(p.get("city") ?? "").toLowerCase()}|${(p.get("country") ?? "").toLowerCase()}|${p.get("count") ?? "7"}`;
+  // Photos of a city rarely change: share them between users for 24 h
+  return cachedJson(key, 24 * 3600_000, () => fetchMedia(req));
+}
+
+async function fetchMedia(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   const city    = params.get("city")?.trim()    ?? "";
   const country = params.get("country")?.trim() ?? "";

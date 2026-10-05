@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import GlobeScene from "./components/Globe/GlobeScene";
 import DestinationCard from "./components/DestinationCard";
@@ -16,6 +16,7 @@ import ActivitiesGrid from "./components/ActivitiesGrid";
 import EventsPanel from "./components/EventsPanel";
 import FilterPanel from "./components/FilterPanel";
 import ItineraryPlanner from "./components/ItineraryPlanner";
+import { streamRecommendation } from "@/app/lib/streamRecommendation";
 import { useFavorites } from "@/app/hooks/useFavorites";
 import { type MockDestination } from "@/data/mockDestinations";
 import GlobMotionLogo from "./components/GlobMotionLogo";
@@ -45,6 +46,7 @@ export default function Home() {
   const [rightTab, setRightTab] = useState<"gallery" | "activities" | "events" | "itinerary">("gallery");
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const { addFavorite } = useFavorites();
+  const searchIdRef = useRef(0);
 
   const toneClass = "";
   const weatherClass = "";
@@ -80,12 +82,9 @@ export default function Home() {
     return () => window.clearTimeout(tid);
   }, [typedPlaceholder, placeholderIdx, isDeletingPlaceholder]);
 
-  const handleSearch = async () => {
-    if (!prompt.trim()) {
-      setError("Veuillez entrer votre prompt");
-      return;
-    }
-
+  const runSearch = async (promptText: string) => {
+    const searchId = ++searchIdRef.current;
+    const isStale = () => searchId !== searchIdRef.current;
     setIsLoading(true);
     setError(null);
     setIsPanelOpen(false);
@@ -96,84 +95,52 @@ export default function Home() {
     setDateRange({ from: null, to: null });
 
     try {
-      const response = await fetch("/api/recommendation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+      await streamRecommendation(promptText, {
+        // Globe zooms as soon as the main coordinates stream in
+        onCoordinates: (lat, lng) =>
+          !isStale() &&
+          setSelectedDestination({
+            destination: { city: "", country: "", coordinates: { lat, lng }, time_zone: "UTC" },
+            vibe: [],
+            local_context: { time_of_day: "day", weather_vibe: "sunny" },
+            why_it_matches: "",
+            activities: [],
+            best_area_to_stay: "",
+            popular_hotspots: [],
+            traveler_vibe_quote: "",
+            hidden_gem: { name: "", description: "" },
+          }),
+        // Main card opens without waiting for the 3 alternatives to finish generating
+        onMain: (main) => {
+          if (isStale()) return;
+          setSelectedDestination(main);
+          setDisplayedDestination(main);
+          setIsPanelOpen(true);
+          setIsLoading(false);
+        },
+        onAlternatives: (alts) =>
+          !isStale() &&
+          setAlternatives(
+            alts.map((a, i) => {
+              const { matchScore, ...data } = a;
+              return { id: `alt-${data.destination.city}-${i}`, data, matchScore };
+            })
+          ),
       });
-
-      if (!response.ok || !response.body) {
-        const errorData = await response.text();
-        console.error("API error:", errorData);
-        throw new Error("Erreur serveur");
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = "";
-      let earlyZoomDone = false;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-
-        // Dès que les coordonnées du MAIN apparaissent dans le stream → zoom globe immédiat
-        // We look for the pattern AFTER "main" to avoid matching an alternative's coordinates first.
-        if (!earlyZoomDone) {
-          const mainIdx = accumulated.indexOf('"main"');
-          const searchIn = mainIdx !== -1 ? accumulated.slice(mainIdx) : accumulated;
-          const coordsMatch = searchIn.match(
-            /"coordinates"\s*:\s*\{\s*"lat"\s*:\s*([-\d.]+)\s*,\s*"lng"\s*:\s*([-\d.]+)/
-          );
-          if (coordsMatch) {
-            earlyZoomDone = true;
-            setSelectedDestination({
-              destination: {
-                city: "",
-                country: "",
-                coordinates: { lat: parseFloat(coordsMatch[1]), lng: parseFloat(coordsMatch[2]) },
-                time_zone: "UTC",
-              },
-              vibe: [],
-              local_context: { time_of_day: "day", weather_vibe: "sunny" },
-              why_it_matches: "",
-              activities: [],
-              best_area_to_stay: "",
-              popular_hotspots: [],
-              traveler_vibe_quote: "",
-              hidden_gem: { name: "", description: "" },
-            });
-          }
-        }
-      }
-
-      // JSON complet → carte destination + alternatives
-      const jsonMatch = accumulated.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Réponse invalide");
-      const parsed = JSON.parse(jsonMatch[0]) as {
-        main: MockDestination;
-        alternatives: (MockDestination & { matchScore: number })[];
-      };
-      // Support both old format (flat MockDestination) and new format ({ main, alternatives })
-      const mainDest: MockDestination = "main" in parsed ? parsed.main : (parsed as unknown as MockDestination);
-      setSelectedDestination(mainDest);
-      setDisplayedDestination(mainDest);
-      setIsPanelOpen(true); // auto-open — no need to click the globe marker
-      if ("alternatives" in parsed && Array.isArray(parsed.alternatives)) {
-        setAlternatives(
-          parsed.alternatives.map((a, i) => {
-            const { matchScore, ...data } = a;
-            return { id: `alt-${data.destination.city}-${i}`, data, matchScore };
-          })
-        );
-      }
     } catch (err) {
       console.error("Error:", err);
-      setError("Impossible de récupérer la recommandation.");
+      if (!isStale()) setError("Impossible de r?cup?rer la recommandation.");
     } finally {
-      setIsLoading(false);
+      if (!isStale()) setIsLoading(false);
     }
+  };
+
+  const handleSearch = () => {
+    if (!prompt.trim()) {
+      setError("Veuillez entrer votre prompt");
+      return;
+    }
+    void runSearch(prompt.trim());
   };
 
   return (
@@ -318,55 +285,7 @@ export default function Home() {
         onClose={() => setIsFilterOpen(false)}
         onMatch={(builtPrompt) => {
           setPrompt(builtPrompt);
-          // Trigger search after state settles
-          setTimeout(() => {
-            setIsLoading(true);
-            setError(null);
-            setIsPanelOpen(false);
-            setSelectedDestination(null);
-            setDisplayedDestination(null);
-            setAlternatives([]);
-            setRightTab("gallery");
-            setDateRange({ from: null, to: null });
-            fetch("/api/recommendation", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ prompt: builtPrompt }),
-            })
-              .then(async (response) => {
-                if (!response.ok || !response.body) throw new Error("Erreur serveur");
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let accumulated = "";
-                let earlyZoomDone = false;
-                while (true) {
-                  const { done, value } = await reader.read();
-                  if (done) break;
-                  accumulated += decoder.decode(value, { stream: true });
-                  if (!earlyZoomDone) {
-                    const mainIdx = accumulated.indexOf('"main"');
-                    const searchIn = mainIdx !== -1 ? accumulated.slice(mainIdx) : accumulated;
-                    const coordsMatch = searchIn.match(/"coordinates"\s*:\s*\{\s*"lat"\s*:\s*([-\d.]+)\s*,\s*"lng"\s*:\s*([-\d.]+)/);
-                    if (coordsMatch) {
-                      earlyZoomDone = true;
-                      setSelectedDestination({ destination: { city: "", country: "", coordinates: { lat: parseFloat(coordsMatch[1]), lng: parseFloat(coordsMatch[2]) }, time_zone: "UTC" }, vibe: [], local_context: { time_of_day: "day", weather_vibe: "sunny" }, why_it_matches: "", activities: [], best_area_to_stay: "", popular_hotspots: [], traveler_vibe_quote: "", hidden_gem: { name: "", description: "" } });
-                    }
-                  }
-                }
-                const jsonMatch = accumulated.match(/\{[\s\S]*\}/);
-                if (!jsonMatch) throw new Error("Réponse invalide");
-                const parsed = JSON.parse(jsonMatch[0]) as { main: MockDestination; alternatives: (MockDestination & { matchScore: number })[] };
-                const mainDest: MockDestination = "main" in parsed ? parsed.main : (parsed as unknown as MockDestination);
-                setSelectedDestination(mainDest);
-                setDisplayedDestination(mainDest);
-                setIsPanelOpen(true);
-                if ("alternatives" in parsed && Array.isArray(parsed.alternatives)) {
-                  setAlternatives(parsed.alternatives.map((a, i) => { const { matchScore, ...data } = a; return { id: `alt-${data.destination.city}-${i}`, data, matchScore }; }));
-                }
-              })
-              .catch(() => setError("Impossible de récupérer la recommandation."))
-              .finally(() => setIsLoading(false));
-          }, 0);
+          void runSearch(builtPrompt);
         }}
       />
 

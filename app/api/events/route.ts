@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cachedJson } from "@/app/lib/serverCache";
 import { resolveSourcesForDestination, countryNameToCode } from "@/app/lib/RegionalSourceRouter";
 import { TicketmasterAdapter }    from "@/app/lib/adapters/TicketmasterAdapter";
 import { EventbriteAdapter }      from "@/app/lib/adapters/EventbriteAdapter";
@@ -49,7 +50,23 @@ function scoreEvent(ev: UnifiedEvent, moods: string[]): number {
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
+// A single slow provider must not delay the whole response
+const SOURCE_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("source timeout")), ms)),
+  ]);
+}
+
 export async function GET(req: NextRequest) {
+  const u = new URL(req.url).searchParams;
+  const key = `events|${["city", "country", "from", "to", "moods"].map((k) => (u.get(k) ?? "").toLowerCase()).join("|")}`;
+  return cachedJson(key, 15 * 60_000, () => fetchEvents(req));
+}
+
+async function fetchEvents(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
   const city       = (searchParams.get("city")    ?? "").trim();
@@ -75,7 +92,7 @@ export async function GET(req: NextRequest) {
 
   // 2. Fetch all in parallel — one failing source must NEVER crash the rest
   const results = await Promise.allSettled(
-    sources.map((s) => s.fetch(city, countryCode, dateRange))
+    sources.map((s) => withTimeout(s.fetch(city, countryCode, dateRange), SOURCE_TIMEOUT_MS))
   );
 
   const allEvents: UnifiedEvent[] = results

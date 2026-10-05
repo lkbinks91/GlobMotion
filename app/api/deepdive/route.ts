@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { cachedJson } from "@/app/lib/serverCache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +72,12 @@ Génère un deep-dive éditorial dans ce format JSON exact (ne dévie pas de la 
 
 Les valeurs de mood doivent être exactement parmi : party, chill, culture, food, design, nature.`;
 
+  const key = `deepdive|${city}|${country}|${vibes.join(",")}|${activities.join(",")}`.toLowerCase();
+  // Same city + same inputs => same deep dive, shared across users for 24 h
+  return cachedJson(key, 24 * 3600_000, () => generate(userPrompt));
+}
+
+async function generate(userPrompt: string): Promise<Response> {
   try {
     const client  = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await client.messages.create({
