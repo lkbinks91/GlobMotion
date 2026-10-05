@@ -1,29 +1,58 @@
-# GlobMotion
+﻿# GlobMotion
 
-Interactive 3D globe that recommends travel destinations based on your mood and vibe. Pick how you feel, get AI-powered suggestions, then explore activities, local events, flight options and a generated itinerary for each destination.
+**Travel at the speed of your mood.** Tell GlobMotion how you feel in plain language ("I've never travelled solo and want somewhere social and sunny in May") and a 3D globe flies to your destination, then gives you everything you need to plan the trip: photos, activities, live events, flights and a personalised day-by-day itinerary.
 
 > **Work in progress.** This is a personal side project that I keep improving in my spare time. It is functional, but not finished: see [Known limitations and roadmap](#known-limitations-and-roadmap).
 >
 > Live demo: _coming soon_
 
-## Screenshots
+![GlobMotion: the 3D globe searching for a destination from a natural-language prompt](docs/screenshots/01-globe-search.png)
 
-| Day-by-day itinerary with 3D map links | Immersive satellite view |
+## Why it is more than a chatbot
+
+- **The answer is an experience, not a wall of text.** The globe starts zooming on the destination while the AI response is still streaming in, and the main card opens before the alternatives are even generated.
+- **Real data around the AI.** Events come from several providers (deduplicated, mood-scored, with per-source timeouts), flights link straight to comparison engines, photos come from Unsplash and Pexels.
+- **Every itinerary activity is explorable.** Each one carries a **3D** badge that opens an immersive satellite or Street View of the exact place.
+
+## Take the tour
+
+### 1. Get a match, alternatives and a way to get there
+
+A main destination with the reasons it fits you, three alternatives with a match score, a photo gallery, and one-click flight comparison pre-filled with your destination.
+
+![Alternative destinations with match scores, photo gallery and flight comparison links](docs/screenshots/02-alternatives-flights-photos.png)
+
+### 2. Build an itinerary around your vibe
+
+Pick up to four vibes (adrenaline, nightlife, food, culture, beach, wellness...) and choose your dates.
+
+| Choose your vibes | Up to 4 categories |
 |---|---|
-| ![Day-by-day itinerary generated for a stay in Bali](docs/screenshots/itinerary.png) | ![Satellite view of White Beach, Boracay, from an itinerary activity](docs/screenshots/satellite-boracay.png) |
+| ![Vibe selection grid](docs/screenshots/03-itinerary-vibes.png) | ![Four vibes selected, ready to generate](docs/screenshots/04-itinerary-select.png) |
 
-![Immersive Street View of a beach in Bali](docs/screenshots/streetview-bali.png)
+The itinerary streams in with a progress indicator and skeleton cards, then appears day by day, split into morning, afternoon and evening, each tagged by category.
+
+| Generating | Result |
+|---|---|
+| ![Itinerary being generated with skeleton loaders](docs/screenshots/05-itinerary-generating.png) | ![Day-by-day itinerary for a stay in Barcelona](docs/screenshots/06-itinerary-result.png) |
+
+### 3. Step into the place
+
+Tap **3D** on any activity to jump into a satellite map or an immersive Street View of the spot.
+
+| Satellite view | Street View |
+|---|---|
+| ![Satellite view of White Beach, Boracay](docs/screenshots/07-satellite-view.jpg) | ![Street View of a beach in Bali](docs/screenshots/08-street-view.jpg) |
 
 ## Features
 
 - Interactive 3D globe with country markers and continent filters
-- Mood/vibe-based destination recommendations (Claude API)
+- Natural-language search plus a guided filter panel
 - Destination deep dive, activity suggestions and day-by-day itinerary planner
 - Events aggregated from multiple sources (Ticketmaster, Eventbrite, SeatGeek, Bandsintown, Resident Advisor)
-- Flight price comparison and deep links (Skyscanner, Google Flights, Kiwi, Kayak)
-- Photo and video gallery (Unsplash, Pexels) and Google Maps 3D view
+- Flight deep links (Skyscanner, Google Flights, Kiwi, Kayak) and price comparison
+- Photo and video gallery (Unsplash, Pexels) and Google Maps 3D / Street View
 - Favorites saved across the session
-
 ## Tech stack
 
 Next.js 16 (App Router) · React · TypeScript · Tailwind CSS · Three.js / three-globe · Anthropic SDK
